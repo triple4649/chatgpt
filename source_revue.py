@@ -3,7 +3,7 @@ import requests, json
 url = "http://localhost:11434/api/generate"
 data = {
   "model": "gpt-oss:20b",
-  "prompt": "次のコードをレビューして改善提案をください:\n\n" + open("chatgpt.py").read()
+  "prompt": "hi:\n\n" + open("chatgpt.py").read()
 }
 
 with requests.post(url, json=data, stream=True) as r:

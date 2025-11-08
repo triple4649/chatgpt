@@ -4,7 +4,7 @@ import json
 url = "http://localhost:11434/api/generate"
 data = {
     "model": "gpt-oss:20b",
-    "prompt": "MacBookM4proの性能について教えて",
+    "prompt": "PDFファイルを結合するPythonのプログラムについて教えて",
 }
 
 with requests.post(url, json=data, stream=True) as r:
