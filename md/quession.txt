@@ -1,0 +1,151 @@
+## 1. ざっくり言うと
+
+Python で PDF を結合するには、**PDF を扱うライブラリ**を使います。  
+代表的なものは
+
+| ライブラリ | 主な特徴 | 推奨バージョン |
+|------------|----------|----------------|
+| **PyPDF2** | 旧バージョンは 1.x 系が人気。 | `pip install PyPDF2` |
+| **pypdf** | PyPDF2 の継続開発版。最新機能がある。 | `pip install pypdf` |
+| **PyMuPDF**（fitz） | 速度が速く、画像埋め込み・OCR も扱える。 | `pip install pymupdf` |
+| **pdfrw** | 軽量。 | `pip install pdfrw` |
+
+> **おすすめ**：最近は **pypdf** が公式にメンテナンスされており、API も分かりやすいのでここを紹介します。  
+> ただし「結合」だけなら `PyMuPDF` も高速です。
+
+---
+
+## 2. まずは環境構築
+
+```bash
+# pip でインストール
+pip install pypdf     # PyPDF2 の次世代版
+# もしくは
+pip install pymupdf   # 速度重視の場合
+```
+
+---
+
+## 3. pypdf で PDF を結合するサンプル
+
+### 3-1. すべての PDF を結合する単純な例
+
+```python
+import os
+from pathlib import Path
+from pypdf import PdfMerger
+
+def merge_pdfs(pdf_paths, output_path):
+    merger = PdfMerger()
+    for pdf in pdf_paths:
+        merger.append(str(pdf))   # ファイル名・Pathlib.Path どちらでも OK
+    merger.write(str(output_path))
+    merger.close()
+
+if __name__ == "__main__":
+    # カレントディレクトリ内の *.pdf を順序付けて結合
+    pdf_files = sorted(Path('.').glob('*.pdf'))
+    merge_pdfs(pdf_files, Path('merged_output.pdf'))
+```
+
+- `PdfMerger.append()` は **ページをそのまま追加**します。  
+- ページ番号が重複しないように気を付ける必要はありません。  
+- `sorted()` でファイル名順に並べると、見やすい結合結果になります。
+
+### 3-2. PDF の順序を自由に指定したい場合
+
+```python
+order = ['chapter1.pdf', 'chapter2.pdf', 'appendix.pdf']
+pdf_files = [Path(p) for p in order]
+merge_pdfs(pdf_files, Path('final.pdf'))
+```
+
+---
+
+## 4. PyMuPDF（fitz）で結合する例
+
+PyMuPDF は高速で、PDF 以外にも画像やテキストを簡単に扱えます。
+
+```python
+import fitz  # PyMuPDF
+from pathlib import Path
+
+def merge_with_fitz(pdf_paths, output_path):
+    doc = fitz.open()  # 新しい空のドキュメントを作成
+    for pdf in pdf_paths:
+        src = fitz.open(pdf)
+        doc.insert_pdf(src)  # すべてのページを挿入
+        src.close()
+    doc.save(output_path)
+    doc.close()
+
+# 使い方
+pdfs = sorted(Path('.').glob('*.pdf'))
+merge_with_fitz(pdfs, Path('merged_fitz.pdf'))
+```
+
+> **ポイント**  
+> - `insert_pdf()` は **全ページをそのままコピー**。  
+> - PyMuPDF は 1.19.16 以降で `insert_pdf` が追加されたので、古いバージョンは `insertPDF` などの異なる API になるので注意してください。
+
+---
+
+## 5. コマンドラインツールでの結合（Python から呼び出す場合も可）
+
+- **qpdf**  
+  ```bash
+  qpdf --empty --pages a.pdf b.pdf c.pdf -- merged.pdf
+  ```
+
+- **pdftk**  
+  ```bash
+  pdftk a.pdf b.pdf c.pdf cat output merged.pdf
+  ```
+
+Python スクリプトから `subprocess` で呼び出す例：
+
+```python
+import subprocess
+
+files = ['a.pdf', 'b.pdf', 'c.pdf']
+cmd = ['qpdf', '--empty', '--pages'] + files + ['--', 'merged.pdf']
+subprocess.run(cmd, check=True)
+```
+
+---
+
+## 6. よくある質問 (FAQ)
+
+| 質問 | 回答 |
+|------|------|
+| **「pypdf で結合した PDF が壊れる」** | PDF が破損している、もしくは書き込みモードが誤っているケースが多い。`PdfMerger.write()` の引数はファイルパスか `fileobj`。ファイルを `open(..., 'wb')` で渡すと安全。 |
+| **「結合後にページ番号がずれる」** | PDF には内部でページ番号が埋め込まれています。結合だけでは影響しません。もしページ番号を「再割り振り」したいなら、PDF を再生成する（例：ReportLab でテキストを追加）必要があります。 |
+| **「PDF に画像が埋め込まれたページがサイズ崩れする」** | `pypdf` は元のサイズをそのままコピーします。もしレイアウトを変えたいなら PyMuPDF で `pdf_page.get_pixmap()` を使って画像として再描画する方法があります。 |
+| **「大量の PDF を結合したい」** | メモリを節約したいなら、`PdfMerger.append()` の `pages` パラメータで一部ページだけを抜き出すか、`fitz.insert_pdf()` を使うと高速です。 |
+
+---
+
+## 7. まとめ
+
+| 目的 | 推奨ライブラリ |
+|------|----------------|
+| **単純に結合** | `pypdf` (`PdfMerger`) |
+| **高速・大規模** | `PyMuPDF` (`fitz`) |
+| **外部ツール利用** | `qpdf` / `pdftk`（`subprocess` で呼び出す） |
+
+基本は次のように書けます。
+
+```python
+from pathlib import Path
+from pypdf import PdfMerger
+
+pdfs = sorted(Path('.').glob('*.pdf'))
+merger = PdfMerger()
+for p in pdfs:
+    merger.append(str(p))
+merger.write('merged.pdf')
+merger.close()
+```
+
+これで、ほとんどの場面で PDF の結合が簡単に行えます。  
+ぜひ試してみてください！ もし途中でエラーが出たら、エラーメッセージとともに質問していただければ、さらに詳しくサポートします。

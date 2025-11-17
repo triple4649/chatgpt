@@ -4,7 +4,7 @@ import json
 url = "http://localhost:11434/api/generate"
 data = {
     "model": "gpt-oss:20b",
-    "prompt": "PDFファイルを結合するPythonのプログラムについて教えて",
+    "prompt": "pypdfでPdfMergerは非推奨のオブジェクトになっている、ただしいPDFの結合ソースを示して",
 }
 
 with requests.post(url, json=data, stream=True) as r:
